@@ -9,6 +9,9 @@ import {
   survivalTickScore,
   playerSpeedForCombo,
   obstacleSpeedComboMultiplier,
+  levelTierName,
+  levelTierIndex,
+  isLevelMilestone,
 } from '@/game/config/balance';
 
 describe('comboMultiplier', () => {
@@ -91,4 +94,35 @@ describe('obstacleSpeedComboMultiplier', () => {
   it('greater than 1 at high combo', () => {
     expect(obstacleSpeedComboMultiplier(20)).toBeGreaterThan(1);
   });
+});
+
+describe('levelTierIndex', () => {
+  it('tier 0 for level 1', () => expect(levelTierIndex(1)).toBe(0));
+  it('tier 0 for level 2', () => expect(levelTierIndex(2)).toBe(0));
+  it('tier 0 for level 3', () => expect(levelTierIndex(3)).toBe(0));
+  it('tier 1 for level 4', () => expect(levelTierIndex(4)).toBe(1));
+  it('tier 1 for level 6', () => expect(levelTierIndex(6)).toBe(1));
+  it('tier 2 for level 7', () => expect(levelTierIndex(7)).toBe(2));
+  it('tier 5 for level 16', () => expect(levelTierIndex(16)).toBe(5));
+});
+
+describe('levelTierName', () => {
+  it('Ignition for level 1', () => expect(levelTierName(1)).toBe('Ignition'));
+  it('Overdrive for level 4', () => expect(levelTierName(4)).toBe('Overdrive'));
+  it('Neon Storm for level 7', () => expect(levelTierName(7)).toBe('Neon Storm'));
+  it('wraps with suffix for high tiers', () => {
+    // tier index 8 = back to Ignition with suffix "2"
+    const name = levelTierName(25);
+    expect(name).toContain('Ignition');
+  });
+});
+
+describe('isLevelMilestone', () => {
+  it('level 1 is a milestone', () => expect(isLevelMilestone(1)).toBe(true));
+  it('level 2 is not a milestone', () => expect(isLevelMilestone(2)).toBe(false));
+  it('level 3 is not a milestone', () => expect(isLevelMilestone(3)).toBe(false));
+  it('level 4 is a milestone', () => expect(isLevelMilestone(4)).toBe(true));
+  it('level 7 is a milestone', () => expect(isLevelMilestone(7)).toBe(true));
+  it('level 10 is a milestone', () => expect(isLevelMilestone(10)).toBe(true));
+  it('level 11 is not a milestone', () => expect(isLevelMilestone(11)).toBe(false));
 });

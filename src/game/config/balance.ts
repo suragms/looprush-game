@@ -6,6 +6,75 @@
  * every new obstacle type has generous telegraphs and caps out.
  */
 
+// ---------------------------------------------------------------------------
+// Level tiers — every 3 levels belongs to a named themed tier.
+// ---------------------------------------------------------------------------
+
+const TIER_NAMES = [
+  'Ignition',
+  'Overdrive',
+  'Neon Storm',
+  'Rush Hour',
+  'Chaos Zone',
+  'Redline',
+  'Singularity',
+  'Void Runner',
+] as const;
+
+/** Number of levels per tier. */
+const LEVELS_PER_TIER = 3;
+
+/** Total unique tier names before suffix repetition. */
+const BASE_TIER_COUNT = TIER_NAMES.length;
+
+export interface LevelTier {
+  index: number;
+  name: string;
+  startLevel: number;
+}
+
+/**
+ * Build the full tier list (repeating with "2", "3"... suffixes).
+ * We pre-compute enough tiers to cover any reasonable play session.
+ */
+function buildTierList(): LevelTier[] {
+  const tiers: LevelTier[] = [];
+  let repeat = 0;
+  for (let i = 0; i < 200; i++) {
+    const baseIdx = i % BASE_TIER_COUNT;
+    const suffix = repeat > 0 ? ' ' + String(repeat + 1) : '';
+    tiers.push({
+      index: i,
+      name: TIER_NAMES[baseIdx] + suffix,
+      startLevel: i * LEVELS_PER_TIER + 1,
+    });
+    if (baseIdx === BASE_TIER_COUNT - 1) repeat++;
+  }
+  return tiers;
+}
+
+const LEVEL_TIERS = buildTierList();
+
+/** Returns the named tier a given level belongs to. */
+export function levelTierName(level: number): string {
+  const idx = levelTierIndex(level);
+  return LEVEL_TIERS[idx]?.name ?? 'Unknown';
+}
+
+/** Returns the 0-based tier index for a given level. */
+export function levelTierIndex(level: number): number {
+  return Math.max(0, Math.floor((level - 1) / LEVELS_PER_TIER));
+}
+
+/**
+ * Returns true when the level just entered a new tier (every 3 levels).
+ * Level 1 is always a milestone (first tier).
+ */
+export function isLevelMilestone(level: number): boolean {
+  if (level <= 1) return true;
+  return (level - 1) % LEVELS_PER_TIER === 0;
+}
+
 export const BALANCE = {
   player: {
     /** Max speed in pixels/second at base difficulty. */

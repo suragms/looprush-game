@@ -29,6 +29,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         cleanupOutdatedCaches: true,
       },
+      devOptions: {
+        enabled: true,
+      },
     }),
   ],
   resolve: {

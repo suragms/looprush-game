@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SCENES, COLORS, TEX, GAME_CONFIG, ENTITY_CAPS } from '@/game/config/constants';
-import { BALANCE, playerSpeedForCombo } from '@/game/config/balance';
-import { orbColor, themeColor } from '@/game/config/theme';
+import { BALANCE, playerSpeedForCombo, levelTierIndex, levelTierName } from '@/game/config/balance';
+import { orbColor, themeColor, tierPalette } from '@/game/config/theme';
 import { loadSave, updateStats, unlockAchievement, completeDailyChallenge } from '@/storage/saveManager';
 import { useGameStore } from '@/store/gameStore';
 import type { ObstacleKind, PowerUpKind, RunResult, EventKind } from '@/types';
@@ -20,6 +20,7 @@ import { generateDailyChallenges, todayKey, checkDailyChallenge } from '@/game/c
 import { checkUnlocks } from '@/game/config/cosmetics';
 import { addOwnedCosmetic } from '@/storage/saveManager';
 import { randPick, randRange } from '@/game/utils/math';
+import { HighlightRecorder } from '@/game/utils/HighlightRecorder';
 
 const POWERUP_TEX: Record<PowerUpKind, string> = {
   shield: TEX.powerShield,
@@ -90,6 +91,12 @@ export class GameScene extends Phaser.Scene {
   // event state
   private activeEvent: EventKind | null = null;
   private eventOverlay?: Phaser.GameObjects.Rectangle;
+  private highlightRecorder = new HighlightRecorder({ duration: 5, fps: 30 });
+
+  // tier transition state
+  private currentTierIndex = 0;
+  private tierOverlay?: Phaser.GameObjects.Rectangle;
+  private tierTransitioning = false;
 
   constructor() {
     super({ key: SCENES.game });
@@ -178,6 +185,22 @@ export class GameScene extends Phaser.Scene {
 
     // Lifecycle listeners
     this.setupLifecycle();
+
+    // Start highlight recording (last 5 seconds circular buffer)
+    this.highlightRecorder.reset();
+    if (this.scale.canvas) {
+      this.highlightRecorder.start(this.scale.canvas as HTMLCanvasElement);
+    }
+
+    // Tier overlay — sits above arena background, used for colour tweening on tier change
+    const initialPalette = tierPalette(0);
+    this.tierOverlay = this.add.rectangle(
+      this.arenaW / 2, this.arenaH / 2,
+      this.arenaW, this.arenaH,
+      initialPalette.bg, 0,
+    );
+    this.tierOverlay.setDepth(-1); // above background grid, below everything else
+    this.currentTierIndex = 0;
   }
 
   update(_time: number, deltaMs: number): void {
@@ -200,6 +223,14 @@ export class GameScene extends Phaser.Scene {
     if (this.difficultySys.justLeveledUp) {
       AudioManager.playLevelUp();
       this.showFloatingText('LEVEL ' + this.difficultySys.getLevel(), this.player.x, this.player.y - 50, '#ffe600');
+
+      // Tier transition — check if we crossed into a new named tier
+      const level = this.difficultySys.getLevel();
+      const newTier = levelTierIndex(level);
+      if (newTier > this.currentTierIndex) {
+        this.currentTierIndex = newTier;
+        this.onTierChanged(newTier);
+      }
     }
 
     // Combo decay
@@ -485,6 +516,62 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  private onTierChanged(newTierIndex: number): void {
+    const palette = tierPalette(newTierIndex);
+    const reducedMotion = this.settings.reducedMotion;
+    const level = this.difficultySys.getLevel();
+    const tierName = levelTierName(level);
+
+    // Show tier banner
+    this.showFloatingText(tierName.toUpperCase(), this.arenaW / 2, this.arenaH / 3, '#ffe600');
+    useGameStore.getState().pushToast({
+      title: '🗺 ' + tierName,
+      kind: 'event',
+    });
+
+    if (reducedMotion) {
+      // Instant swap — no tweens
+      if (this.tierOverlay) {
+        this.tierOverlay.setFillStyle(palette.bg, 1);
+      }
+      this.particles.setParticleTint(palette.particle);
+      this.trail.setParticleTint(palette.particle);
+      return;
+    }
+
+    // Smooth tween the background overlay from transparent to opaque over ~1.5s
+    if (this.tierOverlay && !this.tierTransitioning) {
+      this.tierTransitioning = true;
+      this.tierOverlay.setFillStyle(palette.bg, 0);
+      this.tweens.add({
+        targets: this.tierOverlay,
+        fillAlpha: 1,
+        duration: 1500,
+        ease: 'Sine.easeInOut',
+        onComplete: () => {
+          this.tierTransitioning = false;
+        },
+      });
+    }
+
+    // Tween particle tints — Phaser 3.60+ supports setParticleTint
+    this.tweens.addCounter({
+      from: 0,
+      to: 100,
+      duration: 1500,
+      ease: 'Sine.easeInOut',
+      onUpdate: (tween) => {
+        const val = tween.getValue();
+        const t = (val ?? 0) / 100;
+        // Interpolate is complex with hex — just snap at midpoint for simplicity
+        if (t >= 0.5) {
+          this.particles.setParticleTint(palette.particle);
+          this.trail.setParticleTint(palette.particle);
+        }
+      },
+    });
+  }
+
   private drawArena(themeId: string): void {
     const theme = themeColor(themeId);
     const g = this.add.graphics();
@@ -544,6 +631,7 @@ export class GameScene extends Phaser.Scene {
       combo: this.comboSys.combo,
       multiplier: this.comboSys.getMultiplier(),
       level: this.difficultySys.getLevel(),
+      tierName: levelTierName(this.difficultySys.getLevel()),
       survival: this.difficultySys.getTime(),
       dashCooldown: this.dashSys.cooldownPercent,
       dashReady: this.dashSys.cooldownPercent <= 0,
@@ -633,6 +721,13 @@ export class GameScene extends Phaser.Scene {
       useGameStore.getState().pushToast({ title: '🎨 Unlock: ' + id, kind: 'info' });
     }
 
+    // Stop highlight recording and capture the clip
+    this.highlightRecorder.stop().then((clip) => {
+      useGameStore.getState().setHighlightClip(clip);
+    }).catch(() => {
+      // Recording may have failed; degrade gracefully
+    });
+
     // Transition to result screen after brief delay
     this.time.delayedCall(800, () => {
       useGameStore.getState().onGameOver(runResult);
@@ -687,6 +782,7 @@ export class GameScene extends Phaser.Scene {
 
   private cleanupAndQuit(): void {
     AudioManager.stopMusic();
+    this.highlightRecorder.reset();
     this.entities.releaseAll();
     useGameStore.getState().setScreen('home');
   }

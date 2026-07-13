@@ -65,3 +65,36 @@ export const DEFAULT_EQUIPPED = {
   dash: 'dash_default',
   theme: 'theme_void',
 };
+
+// ---------------------------------------------------------------------------
+// Per-tier visual palettes — keyed by tier index (0 = Ignition, 1 = Overdrive …)
+// ---------------------------------------------------------------------------
+
+export interface TierPalette {
+  /** Background hex colour (e.g. 0x07070f). */
+  bg: number;
+  /** Particle / trail tint hex colour. */
+  particle: number;
+  /** Grid + border hex colour. */
+  border: number;
+}
+
+const TIER_PALETTES: TierPalette[] = [
+  { bg: 0x07070f, particle: 0x00f0ff, border: 0x2a2a44 },  // Ignition (default)
+  { bg: 0x0a0714, particle: 0xff2bd6, border: 0x3a2a50 },  // Overdrive
+  { bg: 0x070a14, particle: 0x00f0ff, border: 0x2a4466 },  // Neon Storm
+  { bg: 0x0f0a07, particle: 0xffe600, border: 0x4a3a22 },  // Rush Hour
+  { bg: 0x140a07, particle: 0xff6b35, border: 0x5a2a1a },  // Chaos Zone
+  { bg: 0x14070a, particle: 0xff3860, border: 0x5a2233 },  // Redline
+  { bg: 0x0a0a14, particle: 0x9d4edd, border: 0x333366 },  // Singularity
+  { bg: 0x04040f, particle: 0x39ff14, border: 0x1a3a1a },  // Void Runner
+];
+
+/** Default palette (matches theme_void). */
+const DEFAULT_TIER_PALETTE: TierPalette = TIER_PALETTES[0]!;
+
+/** Get the visual palette for a given tier index. Wraps for tiers beyond the list. */
+export function tierPalette(tierIndex: number): TierPalette {
+  if (tierIndex < 0) return DEFAULT_TIER_PALETTE;
+  return TIER_PALETTES[tierIndex % TIER_PALETTES.length] ?? DEFAULT_TIER_PALETTE;
+}

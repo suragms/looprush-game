@@ -14,20 +14,45 @@ export interface SettingsStore {
   refreshSave: () => void;
 }
 
+const cloneSave = (s: SaveData): SaveData => ({
+  ...s,
+  stats: { ...s.stats },
+  achievements: Object.fromEntries(
+    Object.entries(s.achievements).map(([k, v]) => [k, { ...v }]),
+  ),
+  cosmetics: {
+    owned: [...s.cosmetics.owned],
+    equipped: { ...s.cosmetics.equipped },
+  },
+  daily: Object.fromEntries(
+    Object.entries(s.daily).map(([k, v]) => [k, { ...v }]),
+  ),
+  settings: { ...s.settings },
+});
+
 export const useSettingsStore = create<SettingsStore>((set) => {
   const save = loadSave();
+  const initialCloned = cloneSave(save);
   return {
-    settings: save.settings,
-    save,
+    settings: initialCloned.settings,
+    save: initialCloned,
 
     setSettings: (patch) => {
       const updated = updateSettings(patch);
-      set({ settings: updated.settings });
+      const cloned = cloneSave(updated);
+      set({
+        settings: cloned.settings,
+        save: cloned,
+      });
     },
 
     refreshSave: () => {
       const s = loadSave();
-      set({ save: s, settings: s.settings });
+      const cloned = cloneSave(s);
+      set({
+        save: cloned,
+        settings: cloned.settings,
+      });
     },
   };
 });

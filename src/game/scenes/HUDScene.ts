@@ -6,6 +6,7 @@ interface HUDData {
   combo: number;
   multiplier: number;
   level: number;
+  tierName: string;
   survival: number;
   dashCooldown: number;
   dashReady: boolean;
@@ -124,8 +125,8 @@ export class HUDScene extends Phaser.Scene {
     // Score
     this.scoreText.setText(data.score.toLocaleString());
 
-    // Level
-    this.levelText.setText('LEVEL ' + data.level);
+    // Level + tier name
+    this.levelText.setText('LEVEL ' + data.level + '  ·  ' + data.tierName.toUpperCase());
 
     // Survival time
     const mins = Math.floor(data.survival / 60);

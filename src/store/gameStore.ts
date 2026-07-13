@@ -17,6 +17,8 @@ export interface GameStore {
   toasts: ToastMessage[];
   /** Player's high score (read from save). */
   highScore: number;
+  /** Last recorded highlight clip (last ~5s of gameplay). */
+  highlightClip: Blob | null;
 
   /** Navigate to a screen. */
   setScreen: (s: Screen) => void;
@@ -28,15 +30,18 @@ export interface GameStore {
   removeToast: (id: number) => void;
   /** Refresh high score from save (e.g. after a run). */
   refreshHighScore: () => void;
+  /** Store a highlight clip blob. */
+  setHighlightClip: (clip: Blob | null) => void;
 }
 
 export const useGameStore = create<GameStore>((set, get) => {
   const save = loadSave();
-  return {
+    return {
     screen: 'home',
     lastResult: null,
     toasts: [],
     highScore: save.stats.highScore,
+    highlightClip: null,
 
     setScreen: (s) => set({ screen: s }),
 
@@ -68,5 +73,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
     refreshHighScore: () =>
       set({ highScore: loadSave().stats.highScore }),
+
+    setHighlightClip: (clip) => set({ highlightClip: clip }),
   };
 });

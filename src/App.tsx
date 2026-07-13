@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from '@/store/gameStore';
+import { usePwaStore } from '@/store/pwaStore';
+import type { BeforeInstallPromptEvent } from '@/store/pwaStore';
 import { HomeScreen } from '@/screens/HomeScreen';
 import { GameScreen } from '@/screens/GameScreen';
 import { ResultScreen } from '@/screens/ResultScreen';
@@ -9,6 +11,7 @@ import { StatsScreen } from '@/screens/StatsScreen';
 import { CustomizeScreen } from '@/screens/CustomizeScreen';
 import { DailyChallengeScreen } from '@/screens/DailyChallengeScreen';
 import { ToastContainer } from '@/components/ToastContainer';
+import { PwaInstallModal } from '@/components/PwaInstallModal';
 
 const SCREENS: Record<string, React.FC> = {
   home: HomeScreen,
@@ -24,6 +27,25 @@ const SCREENS: Record<string, React.FC> = {
 export default function App() {
   const screen = useGameStore((s) => s.screen);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      usePwaStore.getState().setDeferredPrompt(e as BeforeInstallPromptEvent);
+    };
+
+    const handleAppInstalled = () => {
+      usePwaStore.getState().clearDeferredPrompt();
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
   const ScreenComponent = SCREENS[screen];
   if (!ScreenComponent) return null;
 
@@ -31,6 +53,7 @@ export default function App() {
     <div className="h-full-safe w-full relative bg-bg-deep overflow-hidden">
       <ScreenComponent />
       <ToastContainer />
+      <PwaInstallModal />
     </div>
   );
 }
