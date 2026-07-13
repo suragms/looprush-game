@@ -16,7 +16,7 @@ export default defineConfig({
         description: 'A fast-paced neon arcade survival game',
         theme_color: '#0a0a14',
         background_color: '#0a0a14',
-        display: 'fullscreen',
+        display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
         icons: [
